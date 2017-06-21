@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Node-Link Tree (Radial)</title>
+    <script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+    <script src="d3.js"></script>
+    <script src="d3.layout.js"></script>
+    <!-- <script src="https://d3js.org/d3-hierarchy.v1.min.js"></script> -->
+    <style>
+    #slider1{
+      width: 90%;
+    }
+circle.node {
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+g.node {
+  font-size: .7em;
+  font-family: sans-serif;
+}
+.link {
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+    </style>
+  </head>
+  <body>
+    <script type="text/javascript">
+var r = 960 / 2;
+var currentParent;
+var currentDepth=0;
+var currentRoot;
+var isClicked=false;
+var tree = d3.layout.tree()
+    .size([360, r - 120])
+    .sort(function(a, b) { return d3.ascending(a.data.key, b.data.key); })
+    .children(function(d) { return isNaN(d.value) ? d3.entries(d.value) : null; })
+    .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
+var vis = d3.select("body").append("svg:svg")
+    .attr("width", r * 2)
+    .attr("height", r * 2)
+  .append("svg:g")
+    .attr("transform", "translate(" + r + "," + r + ")");
+    var treeHeight=0;
+d3.json("http://localhost/data/d3.json", function(json) {
+ treeWithJson(json);
+ jsonComplete=json;
+ //Calc the hight of the tree
+ tree(d3.entries(json)[0]).forEach(function(val){
+  treeHeight=(treeHeight>val.depth)?treeHeight:val.depth
+  if(val.depth==0)currentRoot=val;
+  $('#slider1').prop('max',treeHeight);
+ })
+})
+$('body').append('<input id="slider1" min="0" max="'+treeHeight+'" step="1" width="90%" data-prev="0" value="0" type="range">').on("change",function(){
+  var slider=$('#slider1');
+  var slideChange=slider.val()-slider.data("prev");
+  if(slideChange>0){
+    console.log("up");
+    //if the change from the slide update according to length of change
+    if(!isClicked){
+      for (var i = slideChange; i > 0; i--) {
+         // currentDepth++;
+          currentParent=currentRoot
+          currentRoot=currentParent.children[0]
+          currentRoot.parent=currentParent;
+        }
+      }else{
+        currentParent=currentRoot.parent
+        var temp=currentParent
+        currentParent.parent=temp.parent
+      }
+    updateTree(currentRoot)
+}else{
+  for (var i = slideChange; i < 0; i++) {
+    currentRoot=currentParent;
+    currentParent=currentRoot.parent
+    updateTree(currentRoot)
+    console.log("down")
+  }
+  }
+  currentDepth=slider.val()
+  slider.data("prev",slider.val())
+  console.log("has been slide")
+  isClicked=false;
+})
+function treeWithJson(json){
+   var nodes = tree(d3.entries(json)[0]);
+  var link = vis.selectAll("g.link")
+      .data(nodes)
+    .enter().append("svg:g")
+      .attr("class", "link");
+  link.selectAll("line")
+      .data(children)
+    .enter().append("svg:line")
+      .attr("x1", function(d) { return x(d.parent); })
+      .attr("y1", function(d) { return y(d.parent); })
+      .attr("x2", function(d) { return x(d.child); })
+      .attr("y2", function(d) { return y(d.child); });
+  var node = vis.selectAll("g.node")
+      .data(nodes)
+    .enter().append("svg:g")
+      .attr("class", "node")
+      .attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")"; }).on("click",click)
+  node.append("svg:circle")
+      .attr("class", "node")
+      .attr("r", 5);
+  node.append("svg:text")
+      .attr("dx", 8)
+      .attr("dy", ".31em")
+      .text(function(d) { return d.data.key; });
+  // Returns parent+child objects for any children of `d`.
+  function children(d) {
+    return (d.children || []).map(function(v) {
+      return {
+        parent: d,
+        child: v
+      };
+    });
+  }
+  // Radial scales for x and y.
+  function x(d) { return d.y * Math.cos((d.x - 90) / 180 * Math.PI); }
+  function y(d) { return d.y * Math.sin((d.x - 90) / 180 * Math.PI); }
+}
+function updateTree(node){
+  console.log("update tree")
+  $("g.link").remove();
+  $("line").remove();
+  $("g.node").remove();
+  var newJson=JSON.parse('{'+'"'+node.data.key+'":'+JSON.stringify(node.data.value)+'}')
+  currentParent=node.parent
+  console.log(newJson)
+  treeWithJson(newJson);
+  // vis.selectAll("g.link")
+  //     .data(nodes)
+  //   .enter()
+}
+// Toggle children on click.
+function click(d) {
+  if (d.children) {
+    console.log("have children");
+  } else {
+    console.log("don't children");
+  }
+  console.log(jsonComplete-d.value)
+  currentRoot=d;
+  if(d.depth>0){
+    isClicked=true;
+    $('#slider1').val(currentDepth+d.depth).trigger("change");
+  }
+  
+}
+
+$(document).on({
+
+ mouseenter: function(){
+
+    //stuff to do on mouse enter
+    $( this).find("circle").css("fill","red");
+
+},
+mouseleave: function () {
+    //stuff to do on mouse leave
+     $( this ).find("circle").css("fill","white");
+
+}},'g.node')
+
+    </script>
+  </body>
+</html>
